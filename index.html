@@ -3,8 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מצפן דינמי</title>
+    <title>מצפן דינמי עם מספרים</title>
     <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column;
+        }
         #compass {
             width: 300px;
             height: 300px;
@@ -14,6 +23,7 @@
             justify-content: center;
             align-items: center;
             position: relative;
+            background: #f0f0f0;
         }
         .needle {
             width: 2px;
@@ -21,6 +31,12 @@
             background-color: red;
             position: absolute;
             transform-origin: 50% 100%;
+        }
+        .number {
+            position: absolute;
+            font-size: 18px;
+            font-weight: bold;
+            color: black;
         }
         #status {
             margin-top: 20px;
@@ -33,6 +49,10 @@
 <body>
     <div id="compass">
         <div class="needle" id="needle"></div>
+        <div class="number" style="top: 10px;">N</div>
+        <div class="number" style="top: 140px; left: 140px;">E</div>
+        <div class="number" style="bottom: 10px;">S</div>
+        <div class="number" style="top: 140px; left: -40px;">W</div>
     </div>
     <div id="status">מחפש את הכיוון...</div>
     <button id="turnOffButton">כבה את המצפן</button>
