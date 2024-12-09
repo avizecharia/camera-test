@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Accurate Compass Simulation</title>
+    <title>Accurate Compass with Strong Tilt Filtering</title>
     <style>
         #direction {
             font-size: 24px;
@@ -13,7 +13,7 @@
     </style>
 </head>
 <body>
-    <button onclick="initializeTracking()">Start Tracking 3232</button>
+    <button onclick="initializeTracking()">Start Tracking</button>
     <div id="direction">Current Direction: 0°</div>
 
     <script>
@@ -21,7 +21,7 @@
         let lastTimestamp = null; // זמן הקריאה האחרונה
         let alphaFiltered = 0; // כיוון משולב עם Complementary Filter
         const alphaWeight = 0.98; // משקל עבור נתוני הג'ירוסקופ
-        const tiltThreshold = 15; // זווית מקסימלית שמותרת להטיה אנכית (במעלות)
+        const tiltThreshold = 10; // זווית מקסימלית שמותרת להטיה אנכית (במעלות)
 
         function initializeTracking() {
             // בקשת הרשאה אם נדרש (לדוגמה, ב-iOS)
@@ -49,7 +49,7 @@
                 }
 
                 // חישוב הזמן שעבר מאז העדכון האחרון (בשניות)
-                const deltaTime = (currentTime - lastTimestamp) / 100;
+                const deltaTime = (currentTime - lastTimestamp) / 1000;
                 lastTimestamp = currentTime;
 
                 // קבלת מהירות זוויתית (שיעור סיבוב על ציר Z בלבד)
@@ -64,25 +64,28 @@
                 const pitch = Math.atan2(accelY, accelZ) * (180 / Math.PI);
                 const roll = Math.atan2(accelX, accelZ) * (180 / Math.PI);
 
-                // אם ההטיה האנכית חורגת מהסף, לא לעדכן את הכיוון
+                // אם ההטיה האנכית חורגת מהסף, השתמש בג'ירוסקופ בלבד
                 if (Math.abs(pitch) > tiltThreshold || Math.abs(roll) > tiltThreshold) {
-                    console.log("Tilt detected, ignoring update.");
-                    return;
+                    console.log("Tilt detected. Using gyro only.");
+                    currentDirection += gyroAlpha * deltaTime; // רק ג'ירוסקופ
+                } else {
+                    // חישוב שינוי בכיוון מ-gyro (אינטגרציה)
+                    const gyroDelta = gyroAlpha * deltaTime;
+
+                    // חישוב כיוון מהאקסלרומטר (רק אם הטיה אנכית נמוכה)
+                    const accelDirection = Math.atan2(accelY, accelX) * (180 / Math.PI);
+
+                    // שילוב Complementary Filter
+                    alphaFiltered = alphaWeight * (alphaFiltered + gyroDelta) + (1 - alphaWeight) * accelDirection;
+
+                    // עדכון הכיוון הנוכחי
+                    currentDirection = (alphaFiltered + 360) % 360; // שמירה בטווח 0-360 מעלות
                 }
-
-                // חישוב שינוי בכיוון מ-gyro (אינטגרציה)
-                const gyroDelta = gyroAlpha * deltaTime;
-
-                // שילוב Complementary Filter
-                alphaFiltered = alphaWeight * (alphaFiltered + gyroDelta) + (1 - alphaWeight) * currentDirection;
-
-                // עדכון הכיוון הנוכחי
-                currentDirection = (alphaFiltered + 360) % 360; // שמירה בטווח 0-360 מעלות
 
                 // עדכון התצוגה על המסך
                 document.getElementById("direction").innerText = `Current Direction: ${currentDirection.toFixed(2)}°`;
 
-                console.log(`Filtered Direction: ${currentDirection.toFixed(2)}°, Gyro: ${gyroDelta.toFixed(2)}, Pitch: ${pitch.toFixed(2)}, Roll: ${roll.toFixed(2)}`);
+                console.log(`Filtered Direction: ${currentDirection.toFixed(2)}°, Pitch: ${pitch.toFixed(2)}, Roll: ${roll.toFixed(2)}`);
             }, true);
         }
     </script>
