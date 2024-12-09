@@ -6,23 +6,43 @@
     <title>Device Motion with Box Movement</title>
     <style>
         #box {
-            display: flex;
-            align-items: center;
-            justify-content: center;
             width: 100px;
             height: 100px;
-            background-color: rgb(20, 211, 36);
+            background-color: rgb(26, 51, 119);
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             transition: transform 0.1s ease-out;  /* חלקות בתנועה */
         }
+
+        .data-display {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px;
+            font-family: Arial, sans-serif;
+        }
     </style>
 </head>
 <body>
-    <div id="box"><p>⬆</p></div>
+    <div id="box"></div>
     <button onclick="initializeMotion()">Allow Motion Sensors</button>
+
+    <!-- תצוגה של הנתונים -->
+    <div id="orientationData" class="data-display">
+        <p>Alpha: <span id="alphaValue">0</span></p>
+        <p>Beta: <span id="betaValue">0</span></p>
+        <p>Gamma: <span id="gammaValue">0</span></p>
+    </div>
+    <div id="motionData" class="data-display" style="top: 150px;">
+        <p>AccelX: <span id="accelX">0</span></p>
+        <p>AccelY: <span id="accelY">0</span></p>
+        <p>AccelZ: <span id="accelZ">0</span></p>
+        <p>RotationAlpha: <span id="rotationAlpha">0</span></p>
+    </div>
 
     <script>
         let deviceOrientationListener;
@@ -56,7 +76,11 @@
                 let beta = event.beta;    // הטיית המכשיר סביב ציר X
                 let gamma = event.gamma;  // הטיית המכשיר סביב ציר Y
                 
-                // הצגת נתונים (אפשר להדפיס או להשתמש בהם לפעולה)
+                // הצגת הנתונים על המסך
+                document.getElementById('alphaValue').innerText = alpha.toFixed(2);
+                document.getElementById('betaValue').innerText = beta.toFixed(2);
+                document.getElementById('gammaValue').innerText = gamma.toFixed(2);
+
                 console.log("DeviceOrientation - alpha:", alpha, "beta:", beta, "gamma:", gamma);
 
                 // נשמור את הערך של alpha כדי לשמור את כיוון המכשיר
@@ -91,9 +115,14 @@
                 let rotationRateBeta = event.rotationRate.beta;
                 let rotationRateGamma = event.rotationRate.gamma;
 
-                // הצגת נתוני התאוצה והסיבוב
+                // הצגת נתוני התאוצה והסיבוב על המסך
+                document.getElementById('accelX').innerText = accelX.toFixed(2);
+                document.getElementById('accelY').innerText = accelY.toFixed(2);
+                document.getElementById('accelZ').innerText = accelZ.toFixed(2);
+                document.getElementById('rotationAlpha').innerText = rotationRateAlpha.toFixed(2);
+
                 console.log("DeviceMotion - AccelX:", accelX, "AccelY:", accelY, "AccelZ:", accelZ);
-                console.log("DeviceMotion - RotationRate Alpha:", rotationRateAlpha, "Beta:", rotationRateBeta, "Gamma:", rotationRateGamma);
+                console.log("DeviceMotion - RotationAlpha:", rotationRateAlpha, "RotationBeta:", rotationRateBeta, "RotationGamma:", rotationRateGamma);
 
                 // זווית חדשה של המכשיר, התנועה והסיבוב (נעשה שימוש ב-alpha כדי לחשב את מיקום הקוביה)
                 moveBox(accelX, accelY, rotationRateAlpha);
@@ -118,7 +147,7 @@
             offsetX = Math.max(0, Math.min(window.innerWidth - element.offsetWidth, offsetX));
             offsetY = Math.max(0, Math.min(window.innerHeight - element.offsetHeight, offsetY));
 
-            // מיקום הקוביה בהתאם לשיעור הסיבוב (אם רוצים להשתמש ב-rotationRateAlpha עבור השפעה על הסיבוב)
+            // סיבוב הקוביה על סמך הערך של rotationRateAlpha
             let rotation = initialAlpha ? rotationRateAlpha + (initialAlpha || 0) : rotationRateAlpha;
 
             // עדכון המיקום והסיבוב של הקוביה
