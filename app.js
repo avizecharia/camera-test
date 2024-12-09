@@ -22,11 +22,11 @@ const  initializeMotion = () => {
 
 function addMotionListeners() {
     if (window.DeviceOrientationEvent) {
-        window.addEventListener("deviceorientation", function (event) {
+        window.addEventListener("deviceorientation", (event)=> {
             tilt([event.beta, event.gamma]);
         }, true);
     } else if (window.DeviceMotionEvent) {
-        window.addEventListener('devicemotion', function (event) {
+        window.addEventListener('devicemotion',  (event)=> {
             tilt([event.acceleration.x * 2, event.acceleration.y * 2]);
         }, true);
     } else {
