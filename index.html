@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Direction Tracking with Complementary Filter</title>
+    <title>Accurate Compass Simulation</title>
     <style>
         #direction {
             font-size: 24px;
@@ -13,14 +13,15 @@
     </style>
 </head>
 <body>
-    <button onclick="initializeTracking()">Start Tracking 2222</button>
+    <button onclick="initializeTracking()">Start Tracking</button>
     <div id="direction">Current Direction: 0°</div>
 
     <script>
         let currentDirection = 0; // כיוון נוכחי במעלות
         let lastTimestamp = null; // זמן הקריאה האחרונה
         let alphaFiltered = 0; // כיוון משולב עם Complementary Filter
-        const alphaWeight = 0.98; // משקל עבור נתוני הג'ירוסקופ (0.98 לטווח קצר)
+        const alphaWeight = 0.98; // משקל עבור נתוני הג'ירוסקופ
+        const tiltThreshold = 15; // זווית מקסימלית שמותרת להטיה אנכית (במעלות)
 
         function initializeTracking() {
             // בקשת הרשאה אם נדרש (לדוגמה, ב-iOS)
@@ -54,23 +55,34 @@
                 // קבלת מהירות זוויתית (שיעור סיבוב על ציר Z בלבד)
                 const gyroAlpha = event.rotationRate.alpha || 0;
 
-                // חישוב הכיוון מ-gyro (אינטגרציה)
-                const gyroDelta = gyroAlpha * deltaTime; // שינוי זוויתי מהג'ירוסקופ
-
-                // חישוב כיוון מהאקסלרומטר
+                // קבלת זווית מהאקסלרומטר
                 const accelX = event.accelerationIncludingGravity.x || 0;
                 const accelY = event.accelerationIncludingGravity.y || 0;
                 const accelZ = event.accelerationIncludingGravity.z || 0;
 
-                const accelDirection = Math.atan2(accelY, accelX) * (180 / Math.PI); // זווית מהאקסלרומטר
+                // חישוב הטיה אנכית (tilt) בצירים שאינם Z
+                const pitch = Math.atan2(accelY, accelZ) * (180 / Math.PI);
+                const roll = Math.atan2(accelX, accelZ) * (180 / Math.PI);
+
+                // אם ההטיה האנכית חורגת מהסף, לא לעדכן את הכיוון
+                if (Math.abs(pitch) > tiltThreshold || Math.abs(roll) > tiltThreshold) {
+                    console.log("Tilt detected, ignoring update.");
+                    return;
+                }
+
+                // חישוב שינוי בכיוון מ-gyro (אינטגרציה)
+                const gyroDelta = gyroAlpha * deltaTime;
 
                 // שילוב Complementary Filter
-                alphaFiltered = alphaWeight * (alphaFiltered + gyroDelta) + (1 - alphaWeight) * accelDirection;
+                alphaFiltered = alphaWeight * (alphaFiltered + gyroDelta) + (1 - alphaWeight) * currentDirection;
+
+                // עדכון הכיוון הנוכחי
+                currentDirection = (alphaFiltered + 360) % 360; // שמירה בטווח 0-360 מעלות
 
                 // עדכון התצוגה על המסך
-                document.getElementById("direction").innerText = `Current Direction: ${alphaFiltered.toFixed(2)}°`;
+                document.getElementById("direction").innerText = `Current Direction: ${currentDirection.toFixed(2)}°`;
 
-                console.log(`Filtered Direction: ${alphaFiltered.toFixed(2)}°, Gyro: ${gyroDelta.toFixed(2)}, Accel: ${accelDirection.toFixed(2)}`);
+                console.log(`Filtered Direction: ${currentDirection.toFixed(2)}°, Gyro: ${gyroDelta.toFixed(2)}, Pitch: ${pitch.toFixed(2)}, Roll: ${roll.toFixed(2)}`);
             }, true);
         }
     </script>
