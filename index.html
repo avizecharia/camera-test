@@ -3,156 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Device Motion with Box Movement</title>
+    <title>מצפן דינמי עם שליטה</title>
     <style>
-        #box {
-            width: 100px;
-            height: 100px;
-            background-color: rgb(26, 51, 119);
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            transition: transform 0.1s ease-out;  /* חלקות בתנועה */
-        }
-
-        .data-display {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background-color: rgba(0, 0, 0, 0.5);
-            color: white;
-            padding: 10px;
+        body {
             font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column;
+        }
+        #compass {
+            width: 300px;
+            height: 300px;
+            border: 2px solid black;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background: #f0f0f0;
+        }
+        .needle {
+            width: 2px;
+            height: 100px;
+            background-color: red;
+            position: absolute;
+            transform-origin: 50% 100%;
+        }
+        .number {
+            position: absolute;
+            font-size: 18px;
+            font-weight: bold;
+            color: black;
+        }
+        #status {
+            margin-top: 20px;
+        }
+        #toggleButton {
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <div id="box"></div>
-    <button onclick="initializeMotion()">Allow Motion Sensors</button>
-
-    <!-- תצוגה של הנתונים -->
-    <div id="orientationData" class="data-display">
-        <p>Alpha: <span id="alphaValue">0</span></p>
-        <p>Beta: <span id="betaValue">0</span></p>
-        <p>Gamma: <span id="gammaValue">0</span></p>
+    <div id="compass">
+        <div class="needle" id="needle"></div>
+        <div class="number" style="top: 10px;">N</div>
+        <div class="number" style="top: 140px; left: 140px;">E</div>
+        <div class="number" style="bottom: 10px;">S</div>
+        <div class="number" style="top: 140px; left: -40px;">W</div>
     </div>
-    <div id="motionData" class="data-display" style="top: 150px;">
-        <p>AccelX: <span id="accelX">0</span></p>
-        <p>AccelY: <span id="accelY">0</span></p>
-        <p>AccelZ: <span id="accelZ">0</span></p>
-        <p>RotationAlpha: <span id="rotationAlpha">0</span></p>
-    </div>
-
+    <div id="status">המצפן מכובה</div>
+    <button id="toggleButton">הפעל/כבה את המצפן</button>
     <script>
-        let deviceOrientationListener;
-        let deviceMotionListener;
-        let initialAlpha = null;  // נשמור את הערך של alpha לשימוש בעת השינוי
-
-        function initializeMotion() {
-            // אם הדפדפן תומך בהרשאה (כמו ב-iOS), נבקש הרשאה
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                DeviceOrientationEvent.requestPermission()
-                    .then(permissionState => {
-                        if (permissionState === 'granted') {
-                            startDeviceOrientation();  // התחלת המעקב אחרי DeviceOrientation אם ההרשאה ניתנה
-                        } else {
-                            console.log("Permission denied for motion sensors.");
-                        }
-                    })
-                    .catch(error => {
-                        console.error("Error requesting permission:", error);
-                    });
-            } else {
-                // אם הדפדפן לא דורש הרשאה, נתחיל את המעקב מיד
-                startDeviceOrientation();
+        let compassActive = false;  // משתנה שמייצג אם המצפן פעיל או לא
+        let lastAlpha = null, lastBeta = null, lastGamma = null;
+        let compassEventListener = null;
+        // עוזר לחשב את הכיוון של המכשיר
+        function updateNeedleRotation(alpha) {
+            const needle = document.getElementById('needle');
+            needle.style.transform = `rotate(${alpha}deg)`;  // הזווית היא האלפא (סיבוב סביב ציר Z)
+        }
+        // הפעלת המצפן כאשר מצפן זמין
+        function activateCompass(event) {
+            const alpha = event.alpha; // זווית של המצפן (צפון מגנטי)
+            if (alpha !== null && compassActive) {
+                updateNeedleRotation(alpha);
             }
         }
-
-        // התחלת המעקב אחרי DeviceOrientation (כדי לקבוע את הכיוון)
-        function startDeviceOrientation() {
-            deviceOrientationListener = function (event) {
-                let alpha = event.alpha;  // סיבוב סביב ציר Z (מצפן)
-                let beta = event.beta;    // הטיית המכשיר סביב ציר X
-                let gamma = event.gamma;  // הטיית המכשיר סביב ציר Y
-                
-                // הצגת הנתונים על המסך
-                document.getElementById('alphaValue').innerText = alpha.toFixed(2);
-                document.getElementById('betaValue').innerText = beta.toFixed(2);
-                document.getElementById('gammaValue').innerText = gamma.toFixed(2);
-
-                console.log("DeviceOrientation - alpha:", alpha, "beta:", beta, "gamma:", gamma);
-
-                // נשמור את הערך של alpha כדי לשמור את כיוון המכשיר
-                if (initialAlpha === null) {
-                    initialAlpha = alpha;  // אם זה הפעם הראשונה, נשמור את alpha
+        // אם נתוני המצפן זמינים
+        if (window.DeviceOrientationEvent) {
+            compassEventListener = (event) => activateCompass(event);
+        }
+        // אם המצפן לא זמין (למשל במנהרה), השתמש בגירוסקופ ובאקסלרומטר
+        if (window.DeviceMotionEvent) {
+            window.addEventListener("devicemotion", (event) => {
+                if (!compassActive) {  // אם המצפן מכובה, השתמש בחיישני תנועה
+                    const beta = event.accelerationIncludingGravity.x;  // תאוצה בציר ה-X
+                    const gamma = event.accelerationIncludingGravity.y; // תאוצה בציר ה-Y
+                    // אם לא היה מצפן, התחילו לחשב את סיבוב המכשיר
+                    if (lastAlpha === null) {
+                        lastAlpha = beta;  // זווית התחלית בציר ה-X
+                        lastBeta = gamma;  // זווית התחלית בציר ה-Y
+                    }
+                    // חישוב שינויים בסיבוב המכשיר (בהנחה ששני הצירים ינועו)
+                    const deltaAlpha = beta - lastAlpha;
+                    const deltaBeta = gamma - lastBeta;
+                    const alpha = deltaAlpha + deltaBeta;  // חיבור השינויים
+                    // עדכון זווית המטרה אם המצפן מכובה
+                    if (!compassActive) {
+                        updateNeedleRotation(alpha);
+                    }
+                    lastAlpha = beta;
+                    lastBeta = gamma;
                 }
-
-                // ברגע שקבענו את הכיוון, נוכל לעבור ל-DeviceMotion
-                stopDeviceOrientation();
-                startDeviceMotion();
-            };
-
-            window.addEventListener("deviceorientation", deviceOrientationListener, true);
+            });
+        } else {
+            document.getElementById("status").textContent = "לא נמצאו חיישני תנועה.";
         }
-
-        // הפסקת המעקב אחרי DeviceOrientation
-        function stopDeviceOrientation() {
-            if (deviceOrientationListener) {
-                window.removeEventListener("deviceorientation", deviceOrientationListener, true);
-                deviceOrientationListener = null;
-                console.log("DeviceOrientation stopped");
+        // כיבוי/הפעלה של המצפן
+        document.getElementById("toggleButton").addEventListener("click", () => {
+            compassActive = !compassActive; // משנה את מצב המצפן (הפוך מ-True ל-False ולהפך)
+            if (compassActive) {
+                document.getElementById("status").textContent = "המצפן פעיל";
+                // הפעלת ה-EventListener של המצפן אם נתון
+                if (compassEventListener) {
+                    window.addEventListener("deviceorientation", compassEventListener);
+                }
+            } else {
+                document.getElementById("status").textContent = "המצפן כובא";
+                // הסרת ה-EventListener של המצפן
+                window.removeEventListener("deviceorientation", compassEventListener);
             }
-        }
-
-        // התחלת המעקב אחרי DeviceMotion (לאחר קביעת הכיוון)
-        function startDeviceMotion() {
-            deviceMotionListener = function (event) {
-                let accelX = event.acceleration.x;
-                let accelY = event.acceleration.y;
-                let accelZ = event.acceleration.z;
-                let rotationRateAlpha = event.rotationRate.alpha;
-                let rotationRateBeta = event.rotationRate.beta;
-                let rotationRateGamma = event.rotationRate.gamma;
-
-                // הצגת נתוני התאוצה והסיבוב על המסך
-                document.getElementById('accelX').innerText = accelX.toFixed(2);
-                document.getElementById('accelY').innerText = accelY.toFixed(2);
-                document.getElementById('accelZ').innerText = accelZ.toFixed(2);
-                document.getElementById('rotationAlpha').innerText = rotationRateAlpha.toFixed(2);
-
-                console.log("DeviceMotion - AccelX:", accelX, "AccelY:", accelY, "AccelZ:", accelZ);
-                console.log("DeviceMotion - RotationAlpha:", rotationRateAlpha, "RotationBeta:", rotationRateBeta, "RotationGamma:", rotationRateGamma);
-
-                // זווית חדשה של המכשיר, התנועה והסיבוב (נעשה שימוש ב-alpha כדי לחשב את מיקום הקוביה)
-                moveBox(accelX, accelY, rotationRateAlpha);
-            };
-
-            window.addEventListener('devicemotion', deviceMotionListener, true);
-        }
-
-        // פונקציה להזזת הקוביה על המסך
-        function moveBox(accelX, accelY, rotationRateAlpha) {
-            const element = document.getElementById('box');
-            if (!element) return;
-
-            // הגדרת רגישות לתנועה
-            const sensitivity = 5;
-
-            // חישוב מיקום הקוביה על סמך תאוצה ושיעור סיבוב
-            let offsetX = accelX * sensitivity;
-            let offsetY = accelY * sensitivity;
-
-            // התאמת המיקום בתוך גבולות המסך
-            offsetX = Math.max(0, Math.min(window.innerWidth - element.offsetWidth, offsetX));
-            offsetY = Math.max(0, Math.min(window.innerHeight - element.offsetHeight, offsetY));
-
-            // סיבוב הקוביה על סמך הערך של rotationRateAlpha
-            let rotation = initialAlpha ? rotationRateAlpha + (initialAlpha || 0) : rotationRateAlpha;
-
-            // עדכון המיקום והסיבוב של הקוביה
-            element.style.transform = `translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg)`;
-        }
+        });
     </script>
 </body>
 </html>
