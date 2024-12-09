@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Device Motion Example</title>
+    <title>Device Motion with Box Movement</title>
     <style>
         #box {
             width: 100px;
             height: 100px;
-            background-color: rgb(26, 51, 119);
+            background-color: rgb(20, 211, 36);
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
+            transition: transform 0.1s ease-out;  /* חלקות בתנועה */
         }
     </style>
 </head>
@@ -23,6 +24,7 @@
     <script>
         let deviceOrientationListener;
         let deviceMotionListener;
+        let initialAlpha = null;  // נשמור את הערך של alpha לשימוש בעת השינוי
 
         function initializeMotion() {
             // אם הדפדפן תומך בהרשאה (כמו ב-iOS), נבקש הרשאה
@@ -51,8 +53,14 @@
                 let beta = event.beta;    // הטיית המכשיר סביב ציר X
                 let gamma = event.gamma;  // הטיית המכשיר סביב ציר Y
                 
+                // הצגת נתונים (אפשר להדפיס או להשתמש בהם לפעולה)
                 console.log("DeviceOrientation - alpha:", alpha, "beta:", beta, "gamma:", gamma);
-                
+
+                // נשמור את הערך של alpha כדי לשמור את כיוון המכשיר
+                if (initialAlpha === null) {
+                    initialAlpha = alpha;  // אם זה הפעם הראשונה, נשמור את alpha
+                }
+
                 // ברגע שקבענו את הכיוון, נוכל לעבור ל-DeviceMotion
                 stopDeviceOrientation();
                 startDeviceMotion();
@@ -79,12 +87,39 @@
                 let rotationRateAlpha = event.rotationRate.alpha;
                 let rotationRateBeta = event.rotationRate.beta;
                 let rotationRateGamma = event.rotationRate.gamma;
-                
+
+                // הצגת נתוני התאוצה והסיבוב
                 console.log("DeviceMotion - AccelX:", accelX, "AccelY:", accelY, "AccelZ:", accelZ);
                 console.log("DeviceMotion - RotationRate Alpha:", rotationRateAlpha, "Beta:", rotationRateBeta, "Gamma:", rotationRateGamma);
+
+                // זווית חדשה של המכשיר, התנועה והסיבוב (נעשה שימוש ב-alpha כדי לחשב את מיקום הקוביה)
+                moveBox(accelX, accelY, rotationRateAlpha);
             };
 
             window.addEventListener('devicemotion', deviceMotionListener, true);
+        }
+
+        // פונקציה להזזת הקוביה על המסך
+        function moveBox(accelX, accelY, rotationRateAlpha) {
+            const element = document.getElementById('box');
+            if (!element) return;
+
+            // הגדרת רגישות לתנועה
+            const sensitivity = 5;
+
+            // חישוב מיקום הקוביה על סמך תאוצה ושיעור סיבוב
+            let offsetX = accelX * sensitivity;
+            let offsetY = accelY * sensitivity;
+
+            // התאמת המיקום בתוך גבולות המסך
+            offsetX = Math.max(0, Math.min(window.innerWidth - element.offsetWidth, offsetX));
+            offsetY = Math.max(0, Math.min(window.innerHeight - element.offsetHeight, offsetY));
+
+            // מיקום הקוביה בהתאם לשיעור הסיבוב (אם רוצים להשתמש ב-rotationRateAlpha עבור השפעה על הסיבוב)
+            let rotation = initialAlpha ? rotationRateAlpha + (initialAlpha || 0) : rotationRateAlpha;
+
+            // עדכון המיקום והסיבוב של הקוביה
+            element.style.transform = `translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg)`;
         }
     </script>
 </body>
