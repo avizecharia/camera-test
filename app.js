@@ -1,6 +1,6 @@
 console.log(typeof DeviceOrientationEvent.requestPermission);
 
-function initializeMotion() {
+const  initializeMotion = () => {
     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
         // דפדפנים שדורשים הרשאה
         DeviceOrientationEvent.requestPermission()
