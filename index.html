@@ -1,170 +1,146 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dual Compass UI</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            background-color: #f0f0f0;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Accurate Dual Compass</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      background: #f4f4f4;
+      font-family: Arial, sans-serif;
+    }
 
-        .compass-container {
-            display: flex;
-            justify-content: space-around;
-            width: 100%;
-            max-width: 500px;
-        }
+    .compass-container {
+      display: flex;
+      gap: 50px;
+    }
 
-        .compass {
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            border: 5px solid #333;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-            background-color: white;
-        }
+    .compass {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      border: 5px solid #ccc;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      background: url('https://purepng.com/public/uploads/large/purepng.com-compasscompassinstrumentnavigationcardinal-directionspointsdiagram-1701527842316onq7x.png')
+        no-repeat center / contain;
+    }
 
-        .needle {
-            position: absolute;
-            width: 2px;
-            height: 70px;
-            background-color: red;
-            transform-origin: 50% 100%;
-            transform: rotate(0deg);
-        }
+    .arrow {
+      position: absolute;
+      width: 0;
+      height: 0;
+      top: -15px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-style: solid;
+      border-width: 30px 20px 0 20px;
+      border-color: red transparent transparent transparent;
+      z-index: 1;
+    }
 
-        #imuButton {
-            margin-top: 20px;
-            padding: 10px 20px;
-            font-size: 16px;
-            background-color: #333;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      border-radius: 5px;
+      transition: background-color 0.2s;
+    }
 
-        #imuButton:focus {
-            outline: none;
-        }
-
-        #direction {
-            font-size: 18px;
-            margin-top: 20px;
-        }
-    </style>
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
 </head>
 <body>
-    <h1>Dual Compass</h1>
-
-    <div class="compass-container">
-        <div id="magneticCompass" class="compass">
-            <div id="needleMagnetic" class="needle"></div>
-        </div>
-        <div id="imuCompass" class="compass">
-            <div id="needleIMU" class="needle"></div>
-        </div>
+  <div class="compass-container">
+    <div class="compass" id="compass1">
+      <div class="arrow"></div>
     </div>
+    <div class="compass" id="compass2">
+      <div class="arrow"></div>
+    </div>
+  </div>
+  <button id="start">Start Compass</button>
+  <script>
+    const compass1 = document.getElementById("compass1");
+    const compass2 = document.getElementById("compass2");
+    const startButton = document.getElementById("start");
 
-    <button id="imuButton" onclick="toggleIMU()">Switch to IMU Compass</button>
-    <div id="direction">Current Direction: 0°</div>
+    let initialHeading = null;
+    let currentHeading = 0;
+    let gyroAngle = 0; // To track the second compass
+    let lastUpdateTime = null;
+    let imuStarted = false; // To track if the IMU has started receiving data
+    let initialDataReceived = false; // To track if the initial magnetic heading is received
 
-    <script>
-        let currentDirectionMagnetic = 0; // כיוון במעלות מהמצפן המגנטי
-        let currentDirectionIMU = 0; // כיוון במעלות מה-IMU
-        let lastTimestamp = null; // זמן הקריאה האחרון
-        let initialDirection = null; // כיוון התחלתי ממגנומטר
-        let usingIMU = false; // מצב של שימוש ב-IMU או לא
-        const alphaWeight = 0.98; // משקל עבור נתוני הג'ירוסקופ
-        const tiltThreshold = 10; // סף להטיה
+    const isFlat = ({ x, y, z }) => {
+      // Device is flat if Z-axis (gravity) is dominant
+      return Math.abs(z) > Math.abs(x) && Math.abs(z) > Math.abs(y);
+    };
 
-        // מצפן מגנטי (המגנומטר)
-        function startMagneticCompass() {
-            if (window.DeviceOrientationEvent) {
-                window.addEventListener("deviceorientation", function(event) {
-                    if (!usingIMU) {
-                        let alpha = event.alpha || 0;
-                        // הגדרת כיוון התחלתי אם עדיין לא הוגדר
-                        if (initialDirection === null) {
-                            initialDirection = alpha;
-                            currentDirectionMagnetic = initialDirection;
-                        }
-                        currentDirectionMagnetic = alpha; // עדכון כיוון המכשיר בעזרת המצפן
-                        updateNeedle('needleMagnetic', currentDirectionMagnetic);
-                    }
-                }, true);
-            }
+    const smoothValue = (current, target, factor) => {
+      return current + (target - current) * factor;
+    };
+
+    const startCompass = () => {
+      if (window.DeviceOrientationEvent) {
+        window.addEventListener("deviceorientation", handleDeviceOrientation);
+      }
+
+      if (window.DeviceMotionEvent) {
+        window.addEventListener("devicemotion", handleDeviceMotion);
+      }
+    };
+
+    const handleDeviceOrientation = (event) => {
+      const heading = event.webkitCompassHeading || Math.abs(event.alpha - 360);
+
+      // Capture the initial heading only once
+      if (!initialDataReceived) {
+        initialHeading = heading;
+        initialDataReceived = true; // Mark that initial heading is received
+      }
+
+      if (initialHeading !== null) {
+        const adjustedHeading = heading - initialHeading;
+        compass1.style.transform = `rotate(${-adjustedHeading}deg)`;
+        currentHeading = adjustedHeading;
+      }
+    };
+
+    const handleDeviceMotion = (event) => {
+      if (!initialDataReceived) return; // Don't process motion until the initial heading is set
+
+      const acceleration = event.accelerationIncludingGravity;
+      if (isFlat(acceleration)) {
+        const now = Date.now();
+        if (!lastUpdateTime) {
+          lastUpdateTime = now;
+          return;
         }
+        const deltaTime = (now - lastUpdateTime) / 1000; // in seconds
+        lastUpdateTime = now;
 
-        // מצפן IMU (באמצעות הג'ירוסקופ ואקסלרומטר)
-        function startIMUCompass() {
-            window.addEventListener("devicemotion", function(event) {
-                const currentTime = event.timeStamp; // הזמן הנוכחי מהאירוע
-                if (lastTimestamp === null) {
-                    lastTimestamp = currentTime;
-                    return;
-                }
+        const rotationRate = event.rotationRate.alpha || 0;
+        gyroAngle += rotationRate * deltaTime;
+        gyroAngle %= 360; // Keep within 0-360 range
+        gyroAngle = smoothValue(gyroAngle, currentHeading, 0.1); // Smooth transition
+        compass2.style.transform = `rotate(${-gyroAngle}deg)`;
+      }
+    };
 
-                const deltaTime = (currentTime - lastTimestamp) / 1000;
-                lastTimestamp = currentTime;
-
-                const gyroAlpha = event.rotationRate.alpha || 0; // נתון הג'ירוסקופ סביב ציר Z
-                const accelX = event.accelerationIncludingGravity.x || 0;
-                const accelY = event.accelerationIncludingGravity.y || 0;
-                const accelZ = event.accelerationIncludingGravity.z || 0;
-
-                const pitch = Math.atan2(accelY, accelZ) * (180 / Math.PI);
-                const roll = Math.atan2(accelX, accelZ) * (180 / Math.PI);
-
-                // אם יש הטיה אנכית חורגת מהסף, מתעלמים מהעדכון
-                if (Math.abs(pitch) > tiltThreshold || Math.abs(roll) > tiltThreshold) {
-                    console.log("Tilt detected. Ignoring update.");
-                    return;
-                }
-
-                const gyroDelta = gyroAlpha * deltaTime;
-                const accelDirection = Math.atan2(accelY, accelX) * (180 / Math.PI);
-
-                // שילוב הנתונים עם Complementary Filter
-                currentDirectionIMU += gyroDelta;
-                currentDirectionIMU = (currentDirectionIMU + 360) % 360; // שמירה בטווח 0-360 מעלות
-                updateNeedle('needleIMU', currentDirectionIMU);
-            }, true);
-        }
-
-        // עדכון הסמן של המצפן
-        function updateNeedle(needleId, direction) {
-            const needle = document.getElementById(needleId);
-            needle.style.transform = `rotate(${direction}deg)`;
-        }
-
-        // פונקציה להעברת מצפן למצב IMU
-        function toggleIMU() {
-            if (!usingIMU) {
-                // כשמעבירים ל-IMU, נפסיק את המצפן המגנטי
-                usingIMU = true;
-                document.getElementById("imuButton").innerText = "Switch to Magnetic Compass";
-                startIMUCompass(); // מתחילים את המעקב עם ה-IMU
-            } else {
-                // חזרה למצב מצפן מגנטי
-                usingIMU = false;
-                document.getElementById("imuButton").innerText = "Switch to IMU Compass";
-                startMagneticCompass(); // מתחילים את המעקב עם המגנומטר
-            }
-        }
-
-        // מתחילים במצב מצפן מגנטי
-        startMagneticCompass();
-    </script>
+    startButton.addEventListener("click", startCompass);
+  </script>
 </body>
 </html>
-    
