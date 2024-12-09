@@ -98,23 +98,15 @@
             window.addEventListener("devicemotion", (event) => {
                 if (!compassActive) {  // אם המצפן מכובה, השתמש בחיישני תנועה
                     const alpha = event.rotationRate.alpha;  // סיבוב המכשיר סביב ציר ה-Z
-                    const beta = event.rotationRate.beta;    // סיבוב המכשיר סביב ציר ה-X
-                    const gamma = event.rotationRate.gamma;  // סיבוב המכשיר סביב ציר ה-Y
                     // עדכון זווית החץ במקרה של מכשיר מכובה
                     if (currentAlpha === null) {
                         currentAlpha = alpha;
-                        currentBeta = beta;
-                        currentGamma = gamma;
                     }
                     const deltaAlpha = alpha - currentAlpha;
-                    const deltaBeta = beta - currentBeta;
-                    const deltaGamma = gamma - currentGamma;
                     const newAlpha = currentAlpha + deltaAlpha;
                     updateNeedleRotation(newAlpha);
                     // שמירה על הזוויות הקודמות
                     currentAlpha = alpha;
-                    currentBeta = beta;
-                    currentGamma = gamma;
                 }
             });
         } else {
