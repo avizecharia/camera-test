@@ -3,37 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Compass with IMU</title>
+    <title>Dual Compass UI</title>
     <style>
-        #direction {
-            font-size: 24px;
+        body {
             font-family: Arial, sans-serif;
-            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+
+        .compass-container {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .compass {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 5px solid #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background-color: white;
+        }
+
+        .needle {
+            position: absolute;
+            width: 2px;
+            height: 70px;
+            background-color: red;
+            transform-origin: 50% 100%;
+            transform: rotate(0deg);
         }
 
         #imuButton {
             margin-top: 20px;
-            padding: 10px;
+            padding: 10px 20px;
             font-size: 16px;
+            background-color: #333;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        #imuButton:focus {
+            outline: none;
+        }
+
+        #direction {
+            font-size: 18px;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <h1>Compass Example</h1>
+    <h1>Dual Compass</h1>
 
-    <div id="direction">Current Direction: 0°</div>
+    <div class="compass-container">
+        <div id="magneticCompass" class="compass">
+            <div id="needleMagnetic" class="needle"></div>
+        </div>
+        <div id="imuCompass" class="compass">
+            <div id="needleIMU" class="needle"></div>
+        </div>
+    </div>
 
     <button id="imuButton" onclick="toggleIMU()">Switch to IMU Compass</button>
+    <div id="direction">Current Direction: 0°</div>
 
     <script>
-        let currentDirection = 0; // כיוון נוכחי במעלות
-        let lastTimestamp = null; // זמן הקריאה האחרונה
-        let initialDirection = null; // הכיוון ההתחלתי (אם אנחנו מתחילים עם המגנומטר)
-        let usingIMU = false; // מצב מצפן IMU
+        let currentDirectionMagnetic = 0; // כיוון במעלות מהמצפן המגנטי
+        let currentDirectionIMU = 0; // כיוון במעלות מה-IMU
+        let lastTimestamp = null; // זמן הקריאה האחרון
+        let initialDirection = null; // כיוון התחלתי ממגנומטר
+        let usingIMU = false; // מצב של שימוש ב-IMU או לא
         const alphaWeight = 0.98; // משקל עבור נתוני הג'ירוסקופ
-        const tiltThreshold = 5; // סף להטיה
+        const tiltThreshold = 10; // סף להטיה
 
-        // מצפן אמיתי (במגנומטר)
+        // מצפן מגנטי (המגנומטר)
         function startMagneticCompass() {
             if (window.DeviceOrientationEvent) {
                 window.addEventListener("deviceorientation", function(event) {
@@ -42,16 +96,16 @@
                         // הגדרת כיוון התחלתי אם עדיין לא הוגדר
                         if (initialDirection === null) {
                             initialDirection = alpha;
-                            currentDirection = initialDirection;
+                            currentDirectionMagnetic = initialDirection;
                         }
-                        currentDirection = alpha; // עדכון כיוון המכשיר בעזרת המצפן
-                        document.getElementById("direction").innerText = `Compass (Magnetic): ${currentDirection.toFixed(2)}°`;
+                        currentDirectionMagnetic = alpha; // עדכון כיוון המכשיר בעזרת המצפן
+                        updateNeedle('needleMagnetic', currentDirectionMagnetic);
                     }
                 }, true);
             }
         }
 
-        // מצפן בעזרת IMU (שימוש בג'ירוסקופ ואקסלרומטר)
+        // מצפן IMU (באמצעות הג'ירוסקופ ואקסלרומטר)
         function startIMUCompass() {
             window.addEventListener("devicemotion", function(event) {
                 const currentTime = event.timeStamp; // הזמן הנוכחי מהאירוע
@@ -81,11 +135,16 @@
                 const accelDirection = Math.atan2(accelY, accelX) * (180 / Math.PI);
 
                 // שילוב הנתונים עם Complementary Filter
-                currentDirection += gyroDelta;
-                currentDirection = (currentDirection + 360) % 360; // שמירה בטווח 0-360 מעלות
-
-                document.getElementById("direction").innerText = `IMU Compass: ${currentDirection.toFixed(2)}°`;
+                currentDirectionIMU += gyroDelta;
+                currentDirectionIMU = (currentDirectionIMU + 360) % 360; // שמירה בטווח 0-360 מעלות
+                updateNeedle('needleIMU', currentDirectionIMU);
             }, true);
+        }
+
+        // עדכון הסמן של המצפן
+        function updateNeedle(needleId, direction) {
+            const needle = document.getElementById(needleId);
+            needle.style.transform = `rotate(${direction}deg)`;
         }
 
         // פונקציה להעברת מצפן למצב IMU
@@ -108,3 +167,4 @@
     </script>
 </body>
 </html>
+    
