@@ -6,6 +6,9 @@
     <title>Device Motion with Box Movement</title>
     <style>
         #box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
             width: 100px;
             height: 100px;
             background-color: rgb(20, 211, 36);
@@ -18,7 +21,7 @@
     </style>
 </head>
 <body>
-    <div id="box">⬆</div>
+    <div id="box"><p>⬆</p></div>
     <button onclick="initializeMotion()">Allow Motion Sensors</button>
 
     <script>
