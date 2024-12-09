@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Accurate Compass with Strong Tilt Filtering</title>
+    <title>Enhanced Compass Sensitivity</title>
     <style>
         #direction {
             font-size: 24px;
@@ -20,8 +20,8 @@
         let currentDirection = 0; // כיוון נוכחי במעלות
         let lastTimestamp = null; // זמן הקריאה האחרונה
         let alphaFiltered = 0; // כיוון משולב עם Complementary Filter
-        const alphaWeight = 0.98; // משקל עבור נתוני הג'ירוסקופ
-        const tiltThreshold = 10; // זווית מקסימלית שמותרת להטיה אנכית (במעלות)
+        const alphaWeight = 0.96; // משקל עבור נתוני הג'ירוסקופ (טווח קצר)
+        const tiltThreshold = 20; // זווית מקסימלית שמותרת להטיה אנכית (במעלות)
 
         function initializeTracking() {
             // בקשת הרשאה אם נדרש (לדוגמה, ב-iOS)
