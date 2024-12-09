@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Improved Direction Tracking</title>
+    <title>Track Rotation Around Z Axis</title>
     <style>
         #direction {
             font-size: 24px;
@@ -40,7 +40,7 @@
 
         function getInitialDirection() {
             window.addEventListener("deviceorientation", function(event) {
-                // קבלת הכיוון הראשוני
+                // קבלת הכיוון הראשוני (רק alpha, ציר Z)
                 if (initialDirection === null) {
                     initialDirection = event.alpha || 0; // נקבע את הכיוון הראשוני
                     currentDirection = initialDirection;
@@ -65,7 +65,7 @@
                 const deltaTime = (currentTime - lastTimestamp) / 1000;
                 lastTimestamp = currentTime;
 
-                // קבלת מהירות זוויתית (שיעור סיבוב על ציר Z)
+                // קבלת מהירות זוויתית (שיעור סיבוב על ציר Z בלבד)
                 const rotationRateAlpha = event.rotationRate.alpha || 0;
 
                 // עדכון הכיוון הנוכחי לפי מהירות זוויתית וזמן שעבר
