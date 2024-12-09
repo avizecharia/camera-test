@@ -3,44 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Direction Tracking with IMU (No Tilt Sensitivity)</title>
+    <title>Compass with IMU</title>
     <style>
         #direction {
             font-size: 24px;
             font-family: Arial, sans-serif;
             margin-top: 20px;
         }
+
+        #imuButton {
+            margin-top: 20px;
+            padding: 10px;
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
-    <button onclick="initializeTracking()">Start Tracking</button>
+    <h1>Compass Example</h1>
+
     <div id="direction">Current Direction: 0°</div>
+
+    <button id="imuButton" onclick="toggleIMU()">Switch to IMU Compass</button>
 
     <script>
         let currentDirection = 0; // כיוון נוכחי במעלות
         let lastTimestamp = null; // זמן הקריאה האחרונה
-        let alphaFiltered = 0; // כיוון משולב עם Complementary Filter
+        let initialDirection = null; // הכיוון ההתחלתי (אם אנחנו מתחילים עם המגנומטר)
+        let usingIMU = false; // מצב מצפן IMU
         const alphaWeight = 0.98; // משקל עבור נתוני הג'ירוסקופ
-        const tiltThreshold = 5; // זווית מקסימלית שמותרת להטיה אנכית (במעלות)
+        const tiltThreshold = 5; // סף להטיה
 
-        function initializeTracking() {
-            // בקשת הרשאה אם נדרש (לדוגמה, ב-iOS)
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                DeviceOrientationEvent.requestPermission()
-                    .then(permissionState => {
-                        if (permissionState === 'granted') {
-                            startTrackingRotation();
-                        } else {
-                            console.log("Permission denied for motion sensors.");
+        // מצפן אמיתי (במגנומטר)
+        function startMagneticCompass() {
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener("deviceorientation", function(event) {
+                    if (!usingIMU) {
+                        let alpha = event.alpha || 0;
+                        // הגדרת כיוון התחלתי אם עדיין לא הוגדר
+                        if (initialDirection === null) {
+                            initialDirection = alpha;
+                            currentDirection = initialDirection;
                         }
-                    })
-                    .catch(error => console.error("Error requesting permission:", error));
-            } else {
-                startTrackingRotation();
+                        currentDirection = alpha; // עדכון כיוון המכשיר בעזרת המצפן
+                        document.getElementById("direction").innerText = `Compass (Magnetic): ${currentDirection.toFixed(2)}°`;
+                    }
+                }, true);
             }
         }
 
-        function startTrackingRotation() {
+        // מצפן בעזרת IMU (שימוש בג'ירוסקופ ואקסלרומטר)
+        function startIMUCompass() {
             window.addEventListener("devicemotion", function(event) {
                 const currentTime = event.timeStamp; // הזמן הנוכחי מהאירוע
                 if (lastTimestamp === null) {
@@ -48,47 +60,51 @@
                     return;
                 }
 
-                // חישוב הזמן שעבר מאז העדכון האחרון (בשניות)
                 const deltaTime = (currentTime - lastTimestamp) / 1000;
                 lastTimestamp = currentTime;
 
-                // קבלת מהירות זוויתית (שיעור סיבוב על ציר Z בלבד)
-                const gyroAlpha = event.rotationRate.alpha || 0;
-
-                // קבלת זווית מהאקסלרומטר
+                const gyroAlpha = event.rotationRate.alpha || 0; // נתון הג'ירוסקופ סביב ציר Z
                 const accelX = event.accelerationIncludingGravity.x || 0;
                 const accelY = event.accelerationIncludingGravity.y || 0;
                 const accelZ = event.accelerationIncludingGravity.z || 0;
 
-                // חישוב הטיה אנכית (tilt) בצירים שאינם Z
                 const pitch = Math.atan2(accelY, accelZ) * (180 / Math.PI);
                 const roll = Math.atan2(accelX, accelZ) * (180 / Math.PI);
 
-                // אם ההטיה האנכית חורגת מהסף, השתמש בג'ירוסקופ בלבד
+                // אם יש הטיה אנכית חורגת מהסף, מתעלמים מהעדכון
                 if (Math.abs(pitch) > tiltThreshold || Math.abs(roll) > tiltThreshold) {
-                    // לא מעדכנים את הכיוון במקרה של הטיה אנכית
                     console.log("Tilt detected. Ignoring update.");
                     return;
                 }
 
-                // חישוב שינוי בכיוון מ-gyro (אינטגרציה)
                 const gyroDelta = gyroAlpha * deltaTime;
-
-                // חישוב כיוון מהאקסלרומטר (רק אם הטיה אנכית נמוכה)
                 const accelDirection = Math.atan2(accelY, accelX) * (180 / Math.PI);
 
-                // שילוב Complementary Filter
-                alphaFiltered = alphaWeight * (alphaFiltered + gyroDelta) + (1 - alphaWeight) * accelDirection;
+                // שילוב הנתונים עם Complementary Filter
+                currentDirection += gyroDelta;
+                currentDirection = (currentDirection + 360) % 360; // שמירה בטווח 0-360 מעלות
 
-                // עדכון הכיוון הנוכחי
-                currentDirection = (alphaFiltered + 360) % 360; // שמירה בטווח 0-360 מעלות
-
-                // עדכון התצוגה על המסך
-                document.getElementById("direction").innerText = `Current Direction: ${currentDirection.toFixed(2)}°`;
-
-                console.log(`Filtered Direction: ${currentDirection.toFixed(2)}°, Pitch: ${pitch.toFixed(2)}, Roll: ${roll.toFixed(2)}`);
+                document.getElementById("direction").innerText = `IMU Compass: ${currentDirection.toFixed(2)}°`;
             }, true);
         }
+
+        // פונקציה להעברת מצפן למצב IMU
+        function toggleIMU() {
+            if (!usingIMU) {
+                // כשמעבירים ל-IMU, נפסיק את המצפן המגנטי
+                usingIMU = true;
+                document.getElementById("imuButton").innerText = "Switch to Magnetic Compass";
+                startIMUCompass(); // מתחילים את המעקב עם ה-IMU
+            } else {
+                // חזרה למצב מצפן מגנטי
+                usingIMU = false;
+                document.getElementById("imuButton").innerText = "Switch to IMU Compass";
+                startMagneticCompass(); // מתחילים את המעקב עם המגנומטר
+            }
+        }
+
+        // מתחילים במצב מצפן מגנטי
+        startMagneticCompass();
     </script>
 </body>
 </html>
