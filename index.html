@@ -58,7 +58,9 @@
     <button id="toggleButton">הפעל/כבה את המצפן</button>
     <script>
         let compassActive = false;  // משתנה שמייצג אם המצפן פעיל או לא
-        let lastAlpha = null, lastBeta = null, lastGamma = null;
+        let currentAlpha = null;
+        let currentBeta = null;
+        let currentGamma = null;
         let compassEventListener = null;
         // עוזר לחשב את הכיוון של המכשיר
         function updateNeedleRotation(alpha) {
@@ -72,37 +74,7 @@
                 updateNeedleRotation(alpha);
             }
         }
-        // אם נתוני המצפן זמינים
-        if (window.DeviceOrientationEvent) {
-            compassEventListener = (event) => activateCompass(event);
-        }
-        // אם המצפן לא זמין (למשל במנהרה), השתמש בגירוסקופ ובאקסלרומטר
-        if (window.DeviceMotionEvent) {
-            window.addEventListener("devicemotion", (event) => {
-                if (!compassActive) {  // אם המצפן מכובה, השתמש בחיישני תנועה
-                    const beta = event.accelerationIncludingGravity.x;  // תאוצה בציר ה-X
-                    const gamma = event.accelerationIncludingGravity.y; // תאוצה בציר ה-Y
-                    // אם לא היה מצפן, התחילו לחשב את סיבוב המכשיר
-                    if (lastAlpha === null) {
-                        lastAlpha = beta;  // זווית התחלית בציר ה-X
-                        lastBeta = gamma;  // זווית התחלית בציר ה-Y
-                    }
-                    // חישוב שינויים בסיבוב המכשיר (בהנחה ששני הצירים ינועו)
-                    const deltaAlpha = beta - lastAlpha;
-                    const deltaBeta = gamma - lastBeta;
-                    const alpha = deltaAlpha + deltaBeta;  // חיבור השינויים
-                    // עדכון זווית המטרה אם המצפן מכובה
-                    if (!compassActive) {
-                        updateNeedleRotation(alpha);
-                    }
-                    lastAlpha = beta;
-                    lastBeta = gamma;
-                }
-            });
-        } else {
-            document.getElementById("status").textContent = "לא נמצאו חיישני תנועה.";
-        }
-        // כיבוי/הפעלה של המצפן
+        // הפעלת/כיבוי המצפן
         document.getElementById("toggleButton").addEventListener("click", () => {
             compassActive = !compassActive; // משנה את מצב המצפן (הפוך מ-True ל-False ולהפך)
             if (compassActive) {
@@ -117,6 +89,37 @@
                 window.removeEventListener("deviceorientation", compassEventListener);
             }
         });
+        // אם נתוני המצפן זמינים
+        if (window.DeviceOrientationEvent) {
+            compassEventListener = (event) => activateCompass(event);
+        }
+        // אם המצפן לא זמין (למשל במנהרה), השתמש בגירוסקופ ובאקסלרומטר
+        if (window.DeviceMotionEvent) {
+            window.addEventListener("devicemotion", (event) => {
+                if (!compassActive) {  // אם המצפן מכובה, השתמש בחיישני תנועה
+                    const alpha = event.rotationRate.alpha;  // סיבוב המכשיר סביב ציר ה-Z
+                    const beta = event.rotationRate.beta;    // סיבוב המכשיר סביב ציר ה-X
+                    const gamma = event.rotationRate.gamma;  // סיבוב המכשיר סביב ציר ה-Y
+                    // עדכון זווית החץ במקרה של מכשיר מכובה
+                    if (currentAlpha === null) {
+                        currentAlpha = alpha;
+                        currentBeta = beta;
+                        currentGamma = gamma;
+                    }
+                    const deltaAlpha = alpha - currentAlpha;
+                    const deltaBeta = beta - currentBeta;
+                    const deltaGamma = gamma - currentGamma;
+                    const newAlpha = currentAlpha + deltaAlpha;
+                    updateNeedleRotation(newAlpha);
+                    // שמירה על הזוויות הקודמות
+                    currentAlpha = alpha;
+                    currentBeta = beta;
+                    currentGamma = gamma;
+                }
+            });
+        } else {
+            document.getElementById("status").textContent = "לא נמצאו חיישני תנועה.";
+        }
     </script>
 </body>
 </html>
