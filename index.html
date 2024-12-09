@@ -1,146 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Accurate Dual Compass</title>
-  <style>
-    body {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-      background: #f4f4f4;
-      font-family: Arial, sans-serif;
-    }
-
-    .compass-container {
-      display: flex;
-      gap: 50px;
-    }
-
-    .compass {
-      position: relative;
-      width: 200px;
-      height: 200px;
-      border-radius: 50%;
-      border: 5px solid #ccc;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-      background: url('https://purepng.com/public/uploads/large/purepng.com-compasscompassinstrumentnavigationcardinal-directionspointsdiagram-1701527842316onq7x.png')
-        no-repeat center / contain;
-    }
-
-    .arrow {
-      position: absolute;
-      width: 0;
-      height: 0;
-      top: -15px;
-      left: 50%;
-      transform: translateX(-50%);
-      border-style: solid;
-      border-width: 30px 20px 0 20px;
-      border-color: red transparent transparent transparent;
-      z-index: 1;
-    }
-
-    button {
-      margin-top: 20px;
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
-      border: none;
-      background-color: #007bff;
-      color: white;
-      border-radius: 5px;
-      transition: background-color 0.2s;
-    }
-
-    button:hover {
-      background-color: #0056b3;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IMU Example - Z Axis</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+        #output {
+            font-size: 24px;
+        }
+    </style>
 </head>
 <body>
-  <div class="compass-container">
-    <div class="compass" id="compass1">
-      <div class="arrow"></div>
-    </div>
-    <div class="compass" id="compass2">
-      <div class="arrow"></div>
-    </div>
-  </div>
-  <button id="start">Start Compass</button>
-  <script>
-    const compass1 = document.getElementById("compass1");
-    const compass2 = document.getElementById("compass2");
-    const startButton = document.getElementById("start");
+    <div id="output">Z-axis Rotation: 0°</div>
 
-    let initialHeading = null;
-    let currentHeading = 0;
-    let gyroAngle = 0; // To track the second compass
-    let lastUpdateTime = null;
-    let imuStarted = false; // To track if the IMU has started receiving data
-    let initialDataReceived = false; // To track if the initial magnetic heading is received
+    <script>
+        let rotationZ = 0; // שיעור סיבוב ציר Z
+        let lastTimestamp = 0; // זמן הקריאה האחרון
 
-    const isFlat = ({ x, y, z }) => {
-      // Device is flat if Z-axis (gravity) is dominant
-      return Math.abs(z) > Math.abs(x) && Math.abs(z) > Math.abs(y);
-    };
+        // פונקציה לבדוק אם המכשיר מונח שטוח
+        const isFlat = ({ x, y, z }) => {
+            return Math.abs(z) > Math.abs(x) && Math.abs(z) > Math.abs(y);
+        };
 
-    const smoothValue = (current, target, factor) => {
-      return current + (target - current) * factor;
-    };
+        // התחלת המעקב אחרי הנתונים של ה-IMU
+        window.addEventListener("devicemotion", (event) => {
+            const acceleration = event.accelerationIncludingGravity;
+            const rotationRate = event.rotationRate || { alpha: 0 };
 
-    const startCompass = () => {
-      if (window.DeviceOrientationEvent) {
-        window.addEventListener("deviceorientation", handleDeviceOrientation);
-      }
+            // אם המכשיר שטוח, אנו יכולים לעדכן את הכיוון
+            if (isFlat(acceleration)) {
+                // חישוב השינוי בכיוון
+                if (lastTimestamp) {
+                    const deltaTime = (event.timeStamp - lastTimestamp) / 1000; // הזמן שעבר בשניות
+                    rotationZ += rotationRate.alpha * deltaTime; // עדכון הסיבוב סביב ציר Z
+                    rotationZ = rotationZ % 360; // נשמור על סיבוב ב-0°-360°
+                }
 
-      if (window.DeviceMotionEvent) {
-        window.addEventListener("devicemotion", handleDeviceMotion);
-      }
-    };
+                // עדכון התצוגה
+                document.getElementById("output").innerText = `Z-axis Rotation: ${rotationZ.toFixed(2)}°`;
+            }
 
-    const handleDeviceOrientation = (event) => {
-      const heading = event.webkitCompassHeading || Math.abs(event.alpha - 360);
-
-      // Capture the initial heading only once
-      if (!initialDataReceived) {
-        initialHeading = heading;
-        initialDataReceived = true; // Mark that initial heading is received
-      }
-
-      if (initialHeading !== null) {
-        const adjustedHeading = heading - initialHeading;
-        compass1.style.transform = `rotate(${-adjustedHeading}deg)`;
-        currentHeading = adjustedHeading;
-      }
-    };
-
-    const handleDeviceMotion = (event) => {
-      if (!initialDataReceived) return; // Don't process motion until the initial heading is set
-
-      const acceleration = event.accelerationIncludingGravity;
-      if (isFlat(acceleration)) {
-        const now = Date.now();
-        if (!lastUpdateTime) {
-          lastUpdateTime = now;
-          return;
-        }
-        const deltaTime = (now - lastUpdateTime) / 1000; // in seconds
-        lastUpdateTime = now;
-
-        const rotationRate = event.rotationRate.alpha || 0;
-        gyroAngle += rotationRate * deltaTime;
-        gyroAngle %= 360; // Keep within 0-360 range
-        gyroAngle = smoothValue(gyroAngle, currentHeading, 0.1); // Smooth transition
-        compass2.style.transform = `rotate(${-gyroAngle}deg)`;
-      }
-    };
-
-    startButton.addEventListener("click", startCompass);
-  </script>
+            lastTimestamp = event.timeStamp;
+        });
+    </script>
 </body>
 </html>
