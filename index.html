@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Track Rotation Around Z Axis</title>
+    <title>Direction Tracking with Filter</title>
     <style>
         #direction {
             font-size: 24px;
@@ -13,13 +13,15 @@
     </style>
 </head>
 <body>
-    <button onclick="initializeTracking()">Start Tracking 1111</button>
+    <button onclick="initializeTracking()">Start Tracking</button>
     <div id="direction">Current Direction: 0°</div>
 
     <script>
         let currentDirection = 0; // כיוון נוכחי במעלות
         let initialDirection = null; // כיוון ראשוני
         let lastTimestamp = null; // זמן הקריאה האחרונה
+        let smoothedRotationRate = 0; // ערך מסונן של rotationRate.alpha
+        const smoothingFactor = 0.1; // מידת החלקת הנתונים (ערך בין 0 ל-1)
 
         function initializeTracking() {
             // בקשת הרשאה אם נדרש (לדוגמה, ב-iOS)
@@ -66,16 +68,19 @@
                 lastTimestamp = currentTime;
 
                 // קבלת מהירות זוויתית (שיעור סיבוב על ציר Z בלבד)
-                const rotationRateAlpha = event.rotationRate.alpha || 0;
+                let rotationRateAlpha = event.rotationRate.alpha || 0;
 
-                // עדכון הכיוון הנוכחי לפי מהירות זוויתית וזמן שעבר
-                currentDirection += rotationRateAlpha * deltaTime; // מהירות זוויתית כפול זמן
+                // החלקת הנתונים עם מסנן Low-Pass
+                smoothedRotationRate = smoothingFactor * rotationRateAlpha + (1 - smoothingFactor) * smoothedRotationRate;
+
+                // עדכון הכיוון הנוכחי לפי מהירות זוויתית המסוננת וזמן שעבר
+                currentDirection += smoothedRotationRate * deltaTime; // מהירות זוויתית כפול זמן
                 currentDirection = (currentDirection + 360) % 360; // שמירה בטווח 0-360 מעלות
 
                 // עדכון התצוגה על המסך
                 document.getElementById("direction").innerText = `Current Direction: ${currentDirection.toFixed(2)}°`;
 
-                console.log(`Updated Direction: ${currentDirection.toFixed(2)}°`);
+                console.log(`Updated Direction: ${currentDirection.toFixed(2)}°, Smoothed Rate: ${smoothedRotationRate.toFixed(2)}`);
             }, true);
         }
     </script>
