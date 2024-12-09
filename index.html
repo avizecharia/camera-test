@@ -13,15 +13,15 @@
     </style>
 </head>
 <body>
-    <button onclick="initializeTracking()">Start Tracking 65</button>
+    <button onclick="initializeTracking()">Start Tracking 45</button>
     <div id="direction">Current Direction: 0°</div>
 
     <script>
         let currentDirection = 0; // כיוון נוכחי במעלות
         let lastTimestamp = null; // זמן הקריאה האחרונה
         let alphaFiltered = 0; // כיוון משולב עם Complementary Filter
-        const alphaWeight = 0.96; // משקל עבור נתוני הג'ירוסקופ (טווח קצר)
-        const tiltThreshold = 20; // זווית מקסימלית שמותרת להטיה אנכית (במעלות)
+        const alphaWeight = 0.94; // משקל עבור נתוני הג'ירוסקופ (טווח קצר)
+        const tiltThreshold = 15; // זווית מקסימלית שמותרת להטיה אנכית (במעלות)
 
         function initializeTracking() {
             // בקשת הרשאה אם נדרש (לדוגמה, ב-iOS)
