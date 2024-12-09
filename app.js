@@ -1,6 +1,8 @@
+console.log(typeof DeviceOrientationEvent.requestPermission);
+
 function initializeMotion() {
-    // בקשת הרשאה לחיישנים (בדפדפנים מסוימים)
     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        // דפדפנים שדורשים הרשאה
         DeviceOrientationEvent.requestPermission()
             .then(permissionState => {
                 if (permissionState === 'granted') {
@@ -9,9 +11,11 @@ function initializeMotion() {
                     console.log("Permission denied for motion sensors.");
                 }
             })
-            .catch(console.error);
+            .catch(error => {
+                console.error("Error requesting permission:", error);
+            });
     } else {
-        // במכשירים שאינם דורשים הרשאה
+        // דפדפנים שאינם דורשים הרשאה
         addMotionListeners();
     }
 }
@@ -24,10 +28,6 @@ function addMotionListeners() {
     } else if (window.DeviceMotionEvent) {
         window.addEventListener('devicemotion', function (event) {
             tilt([event.acceleration.x * 2, event.acceleration.y * 2]);
-        }, true);
-    } else if ('MozOrientation' in window) {
-        window.addEventListener("MozOrientation", function (event) {
-            tilt([event.orientation.x * 50, event.orientation.y * 50]);
         }, true);
     } else {
         console.log("No motion sensors supported.");
@@ -48,8 +48,10 @@ function tilt([x, y]) {
     element.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
 }
 
-// אתחול לאחר טעינת הדף
+// אתחול הקוד
 document.addEventListener('DOMContentLoaded', initializeMotion);
 
-console.log("DeviceOrientationEvent:", 'DeviceOrientationEvent' in window);
-console.log("DeviceMotionEvent:", 'DeviceMotionEvent' in window);
+window.addEventListener('deviceorientation', function(event) {
+    console.log("Alpha:", event.alpha, "Beta:", event.beta, "Gamma:", event.gamma);
+});
+
