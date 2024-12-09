@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מצפן דינמי עם מספרים</title>
+    <title>מצפן דינמי עם שליטה</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -41,7 +41,7 @@
         #status {
             margin-top: 20px;
         }
-        #turnOffButton {
+        #toggleButton {
             margin-top: 20px;
         }
     </style>
@@ -54,10 +54,10 @@
         <div class="number" style="bottom: 10px;">S</div>
         <div class="number" style="top: 140px; left: -40px;">W</div>
     </div>
-    <div id="status">מחפש את הכיוון...</div>
-    <button id="turnOffButton">כבה את המצפן</button>
+    <div id="status">המצפן מכובה</div>
+    <button id="toggleButton">הפעל/כבה את המצפן</button>
     <script>
-        let compassActive = false;
+        let compassActive = false;  // משתנה שמייצג אם המצפן פעיל או לא
         let initialOrientation = null;
         let lastAlpha = null, lastBeta = null, lastGamma = null;
         let compassEventListener = null;
@@ -69,19 +69,13 @@
         // הפעלת המצפן
         function activateCompass(event) {
             const alpha = event.alpha; // זווית של המצפן (צפון מגנטי)
-            if (alpha !== null && !compassActive) {
-                compassActive = true;
-                document.getElementById("status").textContent = "המצפן פעיל";
+            if (alpha !== null && compassActive) {
                 updateNeedleRotation(alpha);
-                // אחרי שקיבלנו את כיוון המצפן, נעצור את ה-EventListener של המצפן
-                window.removeEventListener("deviceorientation", compassEventListener);
-                compassEventListener = null;  // מכבים את ה-event listener
             }
         }
         // אם נתוני המצפן זמינים
         if (window.DeviceOrientationEvent) {
             compassEventListener = (event) => activateCompass(event);
-            window.addEventListener("deviceorientation", compassEventListener);
         }
         // אם המצפן לא זמין (למשל במנהרה), השתמש בגירוסקופ ובאקסלרומטר
         if (window.DeviceMotionEvent) {
@@ -100,7 +94,9 @@
                     const deltaBeta = gamma - lastBeta;
                     const alpha = deltaAlpha + deltaBeta;  // חיבור השינויים
                     // עדכון זווית המטרה
-                    updateNeedleRotation(alpha);
+                    if (compassActive) {
+                        updateNeedleRotation(alpha);
+                    }
                     lastAlpha = beta;
                     lastBeta = gamma;
                 }
@@ -108,29 +104,19 @@
         } else {
             document.getElementById("status").textContent = "לא נמצאו חיישני תנועה.";
         }
-        // כיבוי המצפן באופן מכוון
-        document.getElementById("turnOffButton").addEventListener("click", () => {
+        // כיבוי/הפעלה של המצפן
+        document.getElementById("toggleButton").addEventListener("click", () => {
+            compassActive = !compassActive; // משנה את מצב המצפן (הפוך מ-True ל-False ולהפך)
             if (compassActive) {
-                compassActive = false;
-                document.getElementById("status").textContent = "המצפן כובא.";
-                // אחרי הכיבוי, ניתן להתחיל להשתמש ב-DeviceMotion
-                if (window.DeviceMotionEvent) {
-                    window.addEventListener("devicemotion", (event) => {
-                        const rotationRate = event.rotationRate;
-                        const beta = event.accelerationIncludingGravity.x;
-                        const gamma = event.accelerationIncludingGravity.y;
-                        if (lastAlpha === null) {
-                            lastAlpha = beta;
-                            lastBeta = gamma;
-                        }
-                        const deltaAlpha = beta - lastAlpha;
-                        const deltaBeta = gamma - lastBeta;
-                        const alpha = deltaAlpha + deltaBeta;
-                        updateNeedleRotation(alpha);
-                        lastAlpha = beta;
-                        lastBeta = gamma;
-                    });
+                document.getElementById("status").textContent = "המצפן פעיל";
+                // הפעלת ה-EventListener של המצפן אם נתון
+                if (compassEventListener) {
+                    window.addEventListener("deviceorientation", compassEventListener);
                 }
+            } else {
+                document.getElementById("status").textContent = "המצפן כובא";
+                // הסרת ה-EventListener של המצפן
+                window.removeEventListener("deviceorientation", compassEventListener);
             }
         });
     </script>
