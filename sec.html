@@ -1,93 +1,152 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Direction Tracking with IMU</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Compass and Sensor Comparison</title>
     <style>
-        #direction {
-            font-size: 24px;
-            font-family: Arial, sans-serif;
-            margin-top: 20px;
-        }
+      body {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        align-items: center;
+        justify-content: center;
+      }
+      .compass {
+        position: relative;
+        width: 320px;
+        height: 320px;
+        border-radius: 50%;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+        margin: 20px;
+      }
+      .compass > .compass-circle {
+        position: absolute;
+        width: 90%;
+        height: 90%;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        transition: transform 0.1s ease-out;
+        background: url(https://purepng.com/public/uploads/large/purepng.com-compasscompassinstrumentnavigationcardinal-directionspointsdiagram-1701527842316onq7x.png)
+          center no-repeat;
+        background-size: contain;
+      }
+      .direction {
+        font-size: 24px;
+        font-weight: bold;
+        margin: 10px;
+      }
+      .buttons {
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+      }
+      button {
+        padding: 10px 20px;
+        font-size: 16px;
+      }
+      .result {
+        margin-top: 20px;
+        font-size: 18px;
+        font-weight: bold;
+        text-align: center;
+        color: #333;
+      }
     </style>
-</head>
-<body>
-    <button onclick="initializeTracking()">Start Tracking</button>
-    <div id="direction">Current Direction: 0°</div>
-
+  </head>
+  <body>
+    <div class="compass">
+      <div class="compass-circle"></div>
+    </div>
+    <div class="direction">Compass Direction: 0°</div>
+    <div class="gyro-direction">Gyro Direction: 0°</div>
+    <div class="buttons">
+      <button class="start-btn">Start Compass</button>
+      <button class="compare-btn" disabled>Compare Directions</button>
+    </div>
+    <div class="result"></div>
     <script>
-        let currentDirection = 0; // כיוון נוכחי במעלות
-        let lastTimestamp = null; // זמן הקריאה האחרונה
-        let alphaFiltered = 0; // כיוון משולב עם Complementary Filter
-        const alphaWeight = 0.98; // משקל עבור נתוני הג'ירוסקופ
-        const tiltThreshold = 10; // זווית מקסימלית שמותרת להטיה אנכית (במעלות)
-
-        function initializeTracking() {
-            // בקשת הרשאה אם נדרש (לדוגמה, ב-iOS)
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                DeviceOrientationEvent.requestPermission()
-                    .then(permissionState => {
-                        if (permissionState === 'granted') {
-                            startTrackingRotation();
-                        } else {
-                            console.log("Permission denied for motion sensors.");
-                        }
-                    })
-                    .catch(error => console.error("Error requesting permission:", error));
-            } else {
-                startTrackingRotation();
-            }
+      const compassCircle = document.querySelector(".compass-circle");
+      const directionText = document.querySelector(".direction");
+      const gyroDirectionText = document.querySelector(".gyro-direction");
+      const startBtn = document.querySelector(".start-btn");
+      const compareBtn = document.querySelector(".compare-btn");
+      const resultDiv = document.querySelector(".result");
+      let isCompassRunning = false;
+      let compassDirection = 0; // Compass direction
+      let gyroDirection = 0; // Direction calculated with gyroscope
+      let lastUpdate = performance.now(); // Timestamp for updates
+      let gyro = { x: 0, y: 0, z: 0 }; // Gyroscope values
+      let accel = { x: 0, y: 0, z: 0 }; // Accelerometer values
+      let filterAngle = 0; // Angle from complementary filter
+      let gyroValueWhenStopped = 0;
+      let compassValueWhenStopped = 0;
+      function toggleCompass() {
+        if (isCompassRunning) {
+          stopCompass();
+        } else {
+          startCompass();
         }
-
-        function startTrackingRotation() {
-            window.addEventListener("devicemotion", function(event) {
-                const currentTime = event.timeStamp; // הזמן הנוכחי מהאירוע
-                if (lastTimestamp === null) {
-                    lastTimestamp = currentTime;
-                    return;
-                }
-
-                // חישוב הזמן שעבר מאז העדכון האחרון (בשניות)
-                const deltaTime = (currentTime - lastTimestamp) / 1000;
-                lastTimestamp = currentTime;
-
-                // קבלת מהירות זוויתית (שיעור סיבוב על ציר Z בלבד)
-                const gyroAlpha = event.rotationRate.alpha || 0;
-
-                // קבלת זווית מהאקסלרומטר
-                const accelX = event.accelerationIncludingGravity.x || 0;
-                const accelY = event.accelerationIncludingGravity.y || 0;
-                const accelZ = event.accelerationIncludingGravity.z || 0;
-
-                // חישוב הטיה אנכית (tilt) בצירים שאינם Z
-                const pitch = Math.atan2(accelY, accelZ) * (180 / Math.PI);
-                const roll = Math.atan2(accelX, accelZ) * (180 / Math.PI);
-
-                // אם ההטיה האנכית חורגת מהסף, השתמש בג'ירוסקופ בלבד
-                if (Math.abs(pitch) > tiltThreshold || Math.abs(roll) > tiltThreshold) {
-                    console.log("Tilt detected. Using gyro only.");
-                    currentDirection += gyroAlpha * deltaTime; // רק ג'ירוסקופ
-                } else {
-                    // חישוב שינוי בכיוון מ-gyro (אינטגרציה)
-                    const gyroDelta = gyroAlpha * deltaTime;
-
-                    // חישוב כיוון מהאקסלרומטר (רק אם הטיה אנכית נמוכה)
-                    const accelDirection = Math.atan2(accelY, accelX) * (180 / Math.PI);
-
-                    // שילוב Complementary Filter
-                    alphaFiltered = alphaWeight * (alphaFiltered + gyroDelta) + (1 - alphaWeight) * accelDirection;
-
-                    // עדכון הכיוון הנוכחי
-                    currentDirection = (alphaFiltered + 360) % 360; // שמירה בטווח 0-360 מעלות
-                }
-
-                // עדכון התצוגה על המסך
-                document.getElementById("direction").innerText = `Current Direction: ${currentDirection.toFixed(2)}°`;
-
-                console.log(`Filtered Direction: ${currentDirection.toFixed(2)}°, Pitch: ${pitch.toFixed(2)}, Roll: ${roll.toFixed(2)}`);
-            }, true);
+      }
+      function startCompass() {
+        isCompassRunning = true;
+        startBtn.textContent = "Stop Compass";
+        compareBtn.disabled = true;
+        if (typeof DeviceOrientationEvent !== "undefined") {
+          window.addEventListener("deviceorientationabsolute", handleOrientation, true);
         }
+      }
+      function stopCompass() {
+        isCompassRunning = false;
+        startBtn.textContent = "Start Compass";
+        compareBtn.disabled = false;
+        compassValueWhenStopped = compassDirection;
+        gyroValueWhenStopped = gyroDirection;
+        window.removeEventListener("deviceorientationabsolute", handleOrientation, true);
+      }
+      function handleOrientation(event) {
+        compassDirection = event.webkitCompassHeading || Math.abs(event.alpha - 360);
+        compassCircle.style.transform = `translate(-50%, -50%) rotate(${-compassDirection}deg)`;
+        directionText.textContent = `Compass Direction: ${Math.round(compassDirection)}°`;
+      }
+      function handleMotion(event) {
+        const now = performance.now();
+        const deltaTime = (now - lastUpdate) / 1000;
+        lastUpdate = now;
+        gyro = {
+          x: event.rotationRate.alpha || 0,
+          y: event.rotationRate.beta || 0,
+          z: event.rotationRate.gamma || 0,
+        };
+        accel = {
+          x: event.acceleration.x || 0,
+          y: event.acceleration.y || 0,
+          z: event.acceleration.z || 0,
+        };
+        const accelAngle = Math.atan2(accel.y, accel.z) * (180 / Math.PI);
+        filterAngle = 0.98 * (filterAngle + gyro.y * deltaTime) + 0.02 * accelAngle;
+        gyroDirection = (gyroDirection + gyro.z * deltaTime) % 360;
+        if (gyroDirection < 0) gyroDirection += 360;
+        gyroDirectionText.textContent = `Gyro Direction: ${Math.round(gyroDirection)}°`;
+      }
+      function compareDirections() {
+        let compassDifference = compassDirection - compassValueWhenStopped;
+        let gyroDifference = gyroValueWhenStopped - gyroDirection;
+        const differenceBetweenDifferences = Math.abs(compassDifference - gyroDifference);
+        const isAccurate = differenceBetweenDifferences <= 10;
+        resultDiv.innerHTML = `
+          <p>Result: <span style="color: ${isAccurate ? 'green' : 'red'};">${isAccurate ? "TRUE" : "FALSE"}</span></p>
+          <p>Compass at stop: ${Math.round(compassValueWhenStopped)}°, Compass at start: ${Math.round(compassDirection)}°, Difference: ${Math.round(compassDifference)}°</p>
+          <p>Gyro at stop: ${Math.round(gyroValueWhenStopped)}°, Gyro at start: ${Math.round(gyroDirection)}°, Difference: ${Math.round(gyroDifference)}°</p>
+          <p>Difference between differences: ${Math.round(differenceBetweenDifferences)}°</p>
+        `;
+      }
+      startBtn.addEventListener("click", toggleCompass);
+      compareBtn.addEventListener("click", compareDirections);
+      if (typeof DeviceMotionEvent !== "undefined") {
+        window.addEventListener("devicemotion", handleMotion, true);
+      }
     </script>
-</body>
+  </body>
 </html>

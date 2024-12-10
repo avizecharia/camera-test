@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Accelerometer & Gyroscope Angle</title>
+    <title>Compass and Sensor Comparison</title>
     <style>
       body {
         display: flex;
@@ -11,49 +11,95 @@
         height: 100vh;
         align-items: center;
         justify-content: center;
-        font-family: Arial, sans-serif;
+      }
+      .compass {
+        position: relative;
+        width: 320px;
+        height: 320px;
+        border-radius: 50%;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+        margin: 20px;
+      }
+      .compass > .compass-circle {
+        position: absolute;
+        width: 90%;
+        height: 90%;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        transition: transform 0.1s ease-out;
+        background: url(https://purepng.com/public/uploads/large/purepng.com-compasscompassinstrumentnavigationcardinal-directionspointsdiagram-1701527842316onq7x.png)
+          center no-repeat;
+        background-size: contain;
       }
       .direction {
         font-size: 24px;
         font-weight: bold;
-        margin: 20px;
+        margin: 10px;
+      }
+      .buttons {
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+      }
+      button {
+        padding: 10px 20px;
+        font-size: 16px;
+      }
+      .result {
+        margin-top: 20px;
+        font-size: 18px;
+        font-weight: bold;
+        text-align: center;
+        color: #333;
       }
     </style>
   </head>
   <body>
-    <div class="direction">Angle: 0°</div>
+    <div class="compass">
+      <div class="compass-circle"></div>
+    </div>
+    <div class="direction">Compass Direction: 0°</div>
+    <div class="gyro-direction">Gyro Direction: 0°</div>
+    <div class="buttons">
+      <button class="start-btn">Start Compass</button>
+      <button class="compare-btn" disabled>Compare Directions</button>
+    </div>
+    <div class="result"></div>
     <script>
       const directionText = document.querySelector(".direction");
-      let filterAngle = 0; // Z-axis angle from complementary filter
+      const gyroDirectionText = document.querySelector(".gyro-direction");
+      const startBtn = document.querySelector(".start-btn");
+      const compareBtn = document.querySelector(".compare-btn");
+      const resultDiv = document.querySelector(".result");
+      let gyroDirection = 0; // Direction calculated with gyroscope
       let lastUpdate = performance.now(); // Timestamp for updates
-      // Function to handle motion events
+      let gyro = { x: 0, y: 0, z: 0 }; // Gyroscope values
+      let accel = { x: 0, y: 0, z: 0 }; // Accelerometer values
+      let filterAngle = 0; // Angle from complementary filter
+      let gyroValueWhenStopped = 0;
       function handleMotion(event) {
         const now = performance.now();
-        const deltaTime = (now - lastUpdate) / 1000; // Time since last update in seconds
+        const deltaTime = (now - lastUpdate) / 1000;
         lastUpdate = now;
-        // Read gyroscope and accelerometer data
-        const gyro = {
-          x: event.rotationRate.alpha || 0, // Avoid undefined values
+        gyro = {
+          x: event.rotationRate.alpha || 0,
           y: event.rotationRate.beta || 0,
           z: event.rotationRate.gamma || 0,
         };
-        const accel = {
+        accel = {
           x: event.acceleration.x || 0,
           y: event.acceleration.y || 0,
           z: event.acceleration.z || 0,
         };
-        // Compute angle from accelerometer (pitch)
         const accelAngle = Math.atan2(accel.y, accel.z) * (180 / Math.PI);
-        // Complementary filter for angle estimation
         filterAngle = 0.98 * (filterAngle + gyro.y * deltaTime) + 0.02 * accelAngle;
-        // Update display
-        directionText.textContent = `Angle: ${Math.round(filterAngle)}°`;
+        gyroDirection = (gyroDirection + gyro.z * deltaTime) % 360;
+        if (gyroDirection < 0) gyroDirection += 360;
+        gyroDirectionText.textContent = `Gyro Direction: ${Math.round(gyroDirection)}°`;
       }
-      // Check if DeviceMotionEvent is supported
       if (typeof DeviceMotionEvent !== "undefined") {
         window.addEventListener("devicemotion", handleMotion, true);
-      } else {
-        alert("DeviceMotionEvent is not supported on this device or browser.");
       }
     </script>
   </body>
